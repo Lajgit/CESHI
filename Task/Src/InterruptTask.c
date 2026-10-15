@@ -5,6 +5,7 @@
 #include "CommTask.h"
 #include "port_event.h"
 #include "tim.h"
+#include "InterruptTask.h"
 
 #define COIN_INPUT_DEBOUNCE_TIME 50U
 
@@ -13,6 +14,8 @@
 #define HOOLLE_INPUT_FILTER_MS 3U
 
 volatile uint16_t HoolleInputPendingCount = 0U;
+/* 中文注释：游戏累计珠数与待发送安卓的进珠消息计数独立。 */
+volatile uint16_t GameBallCount = 0U;
 
 extern Event_Handle_t Mesg_event;
 extern Event_Handle_t Event;
@@ -42,6 +45,7 @@ void HoolleInput_FilterInit(void)
     HoolleInputRawState = CurrentState;
     HoolleInputStableState = CurrentState;
     HoolleInputSameCount = 0U;
+    GameBallCount = 0U;
 }
 
 void HoolleInput_Scan1ms(void)
@@ -73,10 +77,13 @@ void HoolleInput_Scan1ms(void)
     {
         HoolleInputStableState = HoolleInputRawState;
 
-        if (HoolleInputStableState == 0U &&
-            HoolleInputPendingCount < 0xFFFFU)
+        if (HoolleInputStableState == 0U)
         {
-            HoolleInputPendingCount++;
+            if (HoolleInputPendingCount < 0xFFFFU)
+                HoolleInputPendingCount++;
+            /* 中文注释：即使安卓上报计数被消费，也不能影响游戏累计珠数。 */
+            if (GameBallCount < 0xFFFFU)
+                GameBallCount++;
         }
     }
 }
@@ -165,48 +172,49 @@ static void Hoolle_1_Output_IRQ(void)
 
 static void Hoolle_2_Output_IRQ(void)
 {
-    uint32_t LowCount;
+    /* 中文注释：第二路改为与第一路相同的吐珠方式，并使用独立毫秒计时，
+       防止两路光眼同时工作时共用TIM7导致脉宽互相干扰。 */
+    static uint32_t LowTick = 0U;
+    static uint8_t LastBallStopped = 0U;
+    uint32_t Now = HAL_GetTick();
 
-    if (HAL_GPIO_ReadPin(
-            HoolleOutput_2_GPIO_Port,
-            HoolleOutput_2_Pin) == GPIO_PIN_RESET)
+    if (HAL_GPIO_ReadPin(HoolleOutput_2_GPIO_Port, HoolleOutput_2_Pin) == GPIO_PIN_RESET)
     {
-        __HAL_TIM_SetCounter(&htim7, 0);
-
-        /*
-         * 中文注释：扭蛋进入下方抓手后光眼被遮挡，此时不能停电机。
-         * 电机需要继续旋转直到抓手打开、扭蛋真正掉出；这里只重置出货超时计时。
-         */
-        Motor_Hoolle2.Motor.ResetRuntime(
-            &Motor_Hoolle2.Motor);
-
+        LowTick = Now;
+        Motor_Hoolle2.Motor.ResetRuntime(&Motor_Hoolle2.Motor);
+        if (Motor_Hoolle2.Hoolle_num == 1U &&
+            Motor_Hoolle2.Motor.state == DEVICE_STATE_BUSY)
+        {
+            Motor_Hoolle2.Motor.Stop(&Motor_Hoolle2.Motor);
+            LastBallStopped = 1U;
+        }
+        else
+        {
+            LastBallStopped = 0U;
+        }
         return;
     }
 
-    LowCount = __HAL_TIM_GetCounter(&htim7);
-
-    if (LowCount > 1U)
+    if ((uint32_t)(Now - LowTick) >= 2U)
     {
         if (Motor_Hoolle2.Hoolle_num > 0U)
         {
-            /* 中文注释：光眼恢复高电平表示扭蛋已离开抓手，才计为成功出货一颗。 */
             Motor_Hoolle2.Hoolle_num--;
             Motor_Hoolle2.RetryCount = 0;
-
-            /* 中文注释：Motor_Hoolle2为扭蛋通道，成功出一颗后上报扭蛋剩余待出数量。 */
-            EventGroupSetBits(
-                &Mesg_event,
-                MesgEvent_RemainingEgg);
-
-            /* 中文注释：最后一颗真正掉出后再进入停止状态，避免提前停机导致少出一颗。 */
+            EventGroupSetBits(&Mesg_event, MesgEvent_RemainingEgg);
             if (Motor_Hoolle2.Hoolle_num == 0U &&
                 Motor_Hoolle2.Motor.state != DEVICE_STATE_IDLE)
-            {
-                Motor_Hoolle2.Motor.state =
-                    DEVICE_STATE_STOP;
-            }
+                Motor_Hoolle2.Motor.state = DEVICE_STATE_STOP;
         }
+        LastBallStopped = 0U;
+        return;
     }
+
+    if (LastBallStopped != 0U &&
+        Motor_Hoolle2.Hoolle_num == 1U &&
+        Motor_Hoolle2.Motor.state == DEVICE_STATE_BUSY)
+        Motor_Hoolle2.Motor.state = DEVICE_STATE_START;
+    LastBallStopped = 0U;
 }
 
 static void CardOutput_IRQ(void)

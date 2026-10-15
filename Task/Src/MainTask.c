@@ -120,6 +120,16 @@ void Game_EndTriggered(void)
     }
 }
 
+void Game_Stop(void)
+{
+    /* 中文注释：外部停止命令清除本关动作状态，禁止后续按键继续驱动电磁阀。 */
+    Game_ValveOff();
+    GameState = GAME_IDLE;
+    GameValveCount = 0U;
+    GameRewardMask = 0U;
+    GameFirstBallSent = 0U;
+}
+
 void Game_Task(void)
 {
     if (GameValveActive != 0U &&

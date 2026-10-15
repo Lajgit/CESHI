@@ -48,34 +48,41 @@ static void Game_NextLevel(void)
 
 void Game_ButtonPressed(void)
 {
-    if (GameState == GAME_IDLE || GameState == GAME_FAILED)
+    if (GameState == GAME_IDLE || GameState == GAME_FAILED ||
+        GameState == GAME_SUCCESS || GameFirstBallSent == 0U)
     {
-        if (GameBallCount < 5U)
-            return;
-        GameLevel = 1U;
-        Game_NextLevel();
-    }
-    else if (GameState == GAME_SUCCESS)
-    {
-        Game_NextLevel();
-    }
-
-    if (GameState != GAME_PLAYING)
-        return;
-
-    if (GameFirstBallSent == 0U)
-    {
-        /* 中文注释：本关首次按键只控制电机1吐一颗，不能同时触发电磁阀。 */
+        /* 中文注释：先确认电机1可出珠，再决定开新局及扣除付费余额。 */
         if (Motor_Hoolle1.ManualRun != 0U ||
             Motor_Hoolle1.Motor.state != DEVICE_STATE_IDLE ||
             Motor_Hoolle1.Hoolle_num != 0U)
+            return;
+
+        if (GameState == GAME_IDLE || GameState == GAME_FAILED)
+        {
+            if (GameBallCount < 5U)
+                return;
+            /* 中文注释：只有付费开新局扣5颗，免费续关不扣；与PE2中断计数互斥。 */
+            __disable_irq();
+            GameBallCount -= 5U;
+            __enable_irq();
+            GameLevel = 1U;
+            Game_NextLevel();
+        }
+        else if (GameState == GAME_SUCCESS)
+        {
+            /* 中文注释：成功后免费进入下一关，每关首次按键仍实际吐1颗。 */
+            Game_NextLevel();
+        }
+
+        if (GameState != GAME_PLAYING)
             return;
         Hoolle_Output(&Motor_Hoolle1, 1U);
         GameFirstBallSent = 1U;
         return;
     }
 
-    if (GameValveCount >= 6U || GameValveActive != 0U)
+    if (GameState != GAME_PLAYING ||
+        GameValveCount >= 6U || GameValveActive != 0U)
         return;
 
     /* 中文注释：两组电磁阀共同动作100ms，每关最多6次。 */

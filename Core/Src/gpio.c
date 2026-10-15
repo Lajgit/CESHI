@@ -61,7 +61,7 @@ void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
 
   /* 中文注释：两路12V灯带为低边MOS驱动，预置输出高电平保持默认开启。 */
-  HAL_GPIO_WritePin(GPIOB, LedOutput1_Pin | LedOutput2_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB, LedOutput1_Pin | LedOutput2_Pin, GPIO_PIN_RESET);
 
   /* 中文注释：两组卡片机控制输出上电默认关闭。 */
   HAL_GPIO_WritePin(CardOutput_GPIO_Port, CardOutput_Pin, GPIO_PIN_RESET);
@@ -81,7 +81,7 @@ void MX_GPIO_Init(void)
   HAL_GPIO_Init(HoolleInput_GPIO_Port, &GPIO_InitStruct);
 
   /* 中文注释：两组卡片机反馈和投币保持原有上升沿触发方式。 */
-  GPIO_InitStruct.Pin = CardFeedback_Pin | CoinInput_Pin | Card2Feedback_Pin;
+  GPIO_InitStruct.Pin = CardFeedback_Pin | Card2Feedback_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
@@ -114,7 +114,7 @@ void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* 中文注释：APM32/STM32初始化为GPIO输出后再次置高，确保PB3/PB4最终默认开启。 */
-  HAL_GPIO_WritePin(GPIOB, LedOutput1_Pin | LedOutput2_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB, LedOutput1_Pin | LedOutput2_Pin, GPIO_PIN_RESET);
 
   /* 中文注释：电子锁MOS控制脚，原弹界TIM5灯效占用已取消。 */
   GPIO_InitStruct.Pin = GPIO_PIN_0;
@@ -138,6 +138,17 @@ void MX_GPIO_Init(void)
 
   /* 中文注释：后台设置按键K3使用PD0；游玩按键1~4使用PD8/PD9/PD10/PD11，均由板上电阻上拉。 */
   GPIO_InitStruct.Pin = KeyBoard1_Pin | PlayButton1_Pin | PlayButton2_Pin | PlayButton3_Pin | PlayButton4_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /* 中文注释：PE6作为末端微动输入；PD6为游戏按键，均使用3.3V有效低电平。 */
+  GPIO_InitStruct.Pin = CoinInput_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = Serial2_RX_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);

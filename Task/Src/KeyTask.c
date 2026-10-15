@@ -126,12 +126,14 @@ static void PlayButton_Init(void)
     }
 }
 
-/* 中文注释：游戏输入采用有效低电平，沿用现有按键15ms消抖框架。 */
+/* 中文注释：八路游戏输入均为低电平有效，稳定15ms后立即产生一次按下事件，
+   不等待微动释放；必须恢复高电平后才能再次触发。 */
 static GPIO_TypeDef *GameInputPorts[8] = {GPIOD, GPIOD, GPIOD, GPIOD, GPIOB, GPIOB, GPIOE, GPIOD};
 static uint16_t GameInputPins[8] = {GPIO_PIN_8, GPIO_PIN_9, GPIO_PIN_10, GPIO_PIN_0,
                                    GPIO_PIN_6, GPIO_PIN_7, GPIO_PIN_6, GPIO_PIN_6};
-static Key_HandleTypeDef GameInputs[8];
-static Key_HandleTypeDef *GameInputList[8];
+static uint8_t GameRaw[8];
+static uint8_t GameStable[8];
+static uint32_t GameChangeTick[8];
 
 static void Game_InputCallback(uint16_t key_id)
 {
@@ -145,21 +147,33 @@ static void Game_InputCallback(uint16_t key_id)
 
 static void GameInput_Init(void)
 {
-    Key_InitTypeDef init = {0};
-    for (uint16_t i = 0U; i < 8U; i++)
+    for (uint8_t i = 0U; i < 8U; i++)
     {
-        init.short_callback = Game_InputCallback;
-        init.long_callback = NULL;
-        init.release_callback = NULL;
-        init.debounce_time = KEY_DEBOUNCE_TIME;
-        init.longpress_time = 0xFFFFFFFFU;
-        init.trigger_frequnecy = 1U;
-        init.trigger_level = GPIO_PIN_RESET;
-        init.key_id = i;
-        init.port = GameInputPorts[i];
-        init.pin = GameInputPins[i];
-        Key_Init(&GameInputs[i], init);
-        GameInputList[i] = &GameInputs[i];
+        uint8_t level = (HAL_GPIO_ReadPin(GameInputPorts[i], GameInputPins[i]) == GPIO_PIN_SET) ? 1U : 0U;
+        GameRaw[i] = level;
+        GameStable[i] = level;
+        GameChangeTick[i] = HAL_GetTick();
+    }
+}
+
+static void GameInput_Scan(void)
+{
+    uint32_t now = HAL_GetTick();
+    for (uint8_t i = 0U; i < 8U; i++)
+    {
+        uint8_t level = (HAL_GPIO_ReadPin(GameInputPorts[i], GameInputPins[i]) == GPIO_PIN_SET) ? 1U : 0U;
+        if (level != GameRaw[i])
+        {
+            GameRaw[i] = level;
+            GameChangeTick[i] = now;
+        }
+        else if (level != GameStable[i] &&
+                 (uint32_t)(now - GameChangeTick[i]) >= KEY_DEBOUNCE_TIME)
+        {
+            GameStable[i] = level;
+            if (level == 0U)
+                Game_InputCallback(i);
+        }
     }
 }
 
@@ -170,5 +184,5 @@ void KeyAll_Init(void)
 
 void Key_Task(void)
 {
-    Key_Scan(GameInputList, 8U);
+    GameInput_Scan();
 }

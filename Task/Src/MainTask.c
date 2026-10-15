@@ -8,6 +8,8 @@
 #include "port_event.h"
 #include "DigitalTubeTask.h"
 #include "iwdg.h"
+#include "InterruptTask.h"
+#include "gpio.h"
 
 #define SYSLIGHT_BLINK_TIME 500
 
@@ -16,6 +18,115 @@ Scene_t Scene = IdleScene;
 Event_Handle_t Event;
 
 extern Tx_HandleTypeDef Tx3;
+extern Motor_Hoolle Motor_Hoolle1, Motor_Hoolle2;
+extern Motor_Card Card;
+
+/* 中文注释：每关独立记录电磁阀次数与奖励命中位。 */
+static GameState_t GameState = GAME_IDLE;
+static uint16_t GameLevel = 1U;
+static uint8_t GameValveCount = 0U;
+static uint8_t GameRewardMask = 0U;
+static uint8_t GameFirstBallSent = 0U;
+static uint8_t GameValveActive = 0U;
+static uint32_t GameValveTick = 0U;
+
+static void Game_ValveOff(void)
+{
+    HAL_GPIO_WritePin(GPIOB, LedOutput1_Pin | LedOutput2_Pin, GPIO_PIN_RESET);
+    GameValveActive = 0U;
+}
+
+static void Game_NextLevel(void)
+{
+    /* 中文注释：免费下一关只清关内记录，不清PE2累计珠数。 */
+    GameValveCount = 0U;
+    GameRewardMask = 0U;
+    GameFirstBallSent = 0U;
+    Game_ValveOff();
+    GameState = GAME_PLAYING;
+}
+
+void Game_ButtonPressed(void)
+{
+    if (GameState == GAME_IDLE || GameState == GAME_FAILED)
+    {
+        if (GameBallCount < 5U)
+            return;
+        GameLevel = 1U;
+        Game_NextLevel();
+    }
+    else if (GameState == GAME_SUCCESS)
+    {
+        Game_NextLevel();
+    }
+
+    if (GameState != GAME_PLAYING)
+        return;
+
+    if (GameFirstBallSent == 0U)
+    {
+        /* 中文注释：本关首次按键只控制电机1吐一颗，不能同时触发电磁阀。 */
+        if (Motor_Hoolle1.ManualRun != 0U ||
+            Motor_Hoolle1.Motor.state != DEVICE_STATE_IDLE ||
+            Motor_Hoolle1.Hoolle_num != 0U)
+            return;
+        Hoolle_Output(&Motor_Hoolle1, 1U);
+        GameFirstBallSent = 1U;
+        return;
+    }
+
+    if (GameValveCount >= 6U || GameValveActive != 0U)
+        return;
+
+    /* 中文注释：两组电磁阀共同动作100ms，每关最多6次。 */
+    GameValveCount++;
+    GameValveTick = HAL_GetTick();
+    HAL_GPIO_WritePin(GPIOB, LedOutput1_Pin | LedOutput2_Pin, GPIO_PIN_SET);
+    GameValveActive = 1U;
+}
+
+void Game_RewardTriggered(uint8_t index)
+{
+    static const uint8_t RewardCounts[6] = {5U, 10U, 2U, 1U, 2U, 3U};
+    uint8_t bit;
+    if (GameState != GAME_PLAYING || index >= 6U)
+        return;
+    bit = (uint8_t)(1U << index);
+    if ((GameRewardMask & bit) != 0U)
+        return;
+    GameRewardMask |= bit;
+    /* 中文注释：前三路使用吐珠电机2，后三路均使用PC4/PE5卡片机1。 */
+    if (index < 3U)
+        Hoolle_Output(&Motor_Hoolle2, RewardCounts[index]);
+    else
+        Card_Output(&Card, RewardCounts[index]);
+}
+
+void Game_EndTriggered(void)
+{
+    if (GameState != GAME_PLAYING)
+        return;
+    Game_ValveOff();
+    if (GameRewardMask == 0x3FU)
+    {
+        if (GameLevel < 9999U)
+            GameLevel++;
+        GameState = GAME_SUCCESS;
+    }
+    else
+    {
+        GameLevel = 1U;
+        GameState = GAME_FAILED;
+    }
+}
+
+void Game_Task(void)
+{
+    if (GameValveActive != 0U &&
+        (uint32_t)(HAL_GetTick() - GameValveTick) >= 100U)
+        Game_ValveOff();
+}
+
 
 void System_Reset(void)
 {
@@ -78,6 +189,7 @@ void Main_Task(void)
     FlashTask();
     HAL_IWDG_Refresh(&hiwdg);
     Key_Task();
+    Game_Task();
     HAL_IWDG_Refresh(&hiwdg);
     /* 中文注释：旧弹界本地灯效任务已从主循环移除。 */
     CtrlTask();

@@ -112,6 +112,7 @@ static void Board_SystemRestart(bool enter_bootloader)
         return;
 
     /* 中文注释：复位前强制退出0x21手动常转模式并立即停止吐珠电机。 */
+    Game_Stop();
     SteelBall_MotorSwitch(MOTOR_SWITCH_OFF);
     Motor_Hoolle2.Motor.state = DEVICE_STATE_STOP;
     Card.Switch.state = DEVICE_STATE_STOP;
@@ -297,6 +298,7 @@ static void USART1_Deal(void *Rx_mesg)
 
             /// 停止所有设备
             case r_StopAllDevice:
+                Game_Stop();
                 /* 中文注释：0xFF必须同时退出0x21手动常转模式，防止下一轮CtrlTask重新启动。 */
                 SteelBall_MotorSwitch(MOTOR_SWITCH_OFF);
                 Motor_Hoolle2.Motor.state = DEVICE_STATE_STOP;

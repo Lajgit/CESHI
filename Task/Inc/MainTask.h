@@ -26,6 +26,19 @@ typedef enum
     LittleGame_2 = 4,
 } Scene_t;
 
+/* 中文注释：状态码1待机、2游戏中、3成功、4失败。 */
+typedef enum
+{
+    GAME_IDLE = 1,
+    GAME_PLAYING = 2,
+    GAME_SUCCESS = 3,
+    GAME_FAILED = 4
+} GameState_t;
+
+void Game_ButtonPressed(void);
+void Game_RewardTriggered(uint8_t index);
+void Game_EndTriggered(void);
+void Game_Task(void);
 void System_Reset(void);
 void Main_Init(void);
 void Main_Task(void);

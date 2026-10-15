@@ -203,7 +203,8 @@ static void USART1_Deal(void *Rx_mesg)
                  * Data4=0x01控制第1路三组LED，Data4=0x02控制第2路三组LED；
                  * ExpandCode=0x00关闭，0x01开启。
                  */
-                LedOutput_Set(mesg->Data4, mesg->ExpandCode);
+                /* 中文注释：PB3/PB4已改为电磁阀，禁止旧灯带协议直接控制。 */
+                break;
                 break;
 
             /// 清钢珠/清扭蛋
@@ -324,7 +325,7 @@ static void USART1_Deal(void *Rx_mesg)
                  * DigitalTube_SetDisplayNumber()内部可能为主板本地显示执行×10左移，
                  * 但data本身保持安卓原始值不变。
                  */
-                DigitalTube_SetDisplayNumber(data);
+                /* 中文注释：本地10位数码管固定显示测试内容，不被旧安卓命令覆盖。 */
 
                 /*
                  * 控台数码管为正常四位，不需要×10。

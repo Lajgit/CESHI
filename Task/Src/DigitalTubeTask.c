@@ -2,7 +2,7 @@
 
 #define DigitalTube_Refresh_Time 25
 
-static uint8_t DigitalBuffer[4] = {0x82};
+static uint8_t DigitalBuffer[10] = {0};
 DigitalTube_t DigitalTube;
 
 /*
@@ -24,7 +24,12 @@ void DigitalTubeTask_Init(void)
     Init.CODE_CA = DIGITAL3BIT_CODE_CA;
 
     DigitalTube_Init(&DigitalTube, Init);
-    DigitalTube_SetDisplayNumber(0U);
+    /* 中文注释：10位级联显示按逻辑顺序暂写为12 / 3456 / 7895；
+       字节在三块实物模块上的方向需要上板校验。 */
+    static const uint8_t TestDigits[10] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 5};
+    for (uint8_t i = 0U; i < 10U; i++)
+        DigitalBuffer[9U - i] = DIGITAL3BIT_CODE_CA[TestDigits[i]];
+    DigitalTube.Refresh(&DigitalTube);
 
     /* 中文注释：首帧数据完成锁存后再拉低SEG_OE，使能数码管输出。 */
     HAL_GPIO_WritePin(Tube_OE_GPIO_Port, Tube_OE_Pin, GPIO_PIN_RESET);

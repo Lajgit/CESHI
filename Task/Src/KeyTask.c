@@ -1,6 +1,8 @@
 #include "KeyTask.h"
 #include "CommTask.h"
 #include "port_key.h"
+#include "MainTask.h"
+#include "main.h"
 
 #define SETTING_BUTTON_COUNT 3U
 #define PLAY_BUTTON_COUNT 4U
@@ -124,14 +126,49 @@ static void PlayButton_Init(void)
     }
 }
 
+/* 中文注释：游戏输入采用有效低电平，沿用现有按键15ms消抖框架。 */
+static GPIO_TypeDef *GameInputPorts[8] = {GPIOD, GPIOD, GPIOD, GPIOD, GPIOB, GPIOB, GPIOE, GPIOD};
+static uint16_t GameInputPins[8] = {GPIO_PIN_8, GPIO_PIN_9, GPIO_PIN_10, GPIO_PIN_0,
+                                   GPIO_PIN_6, GPIO_PIN_7, GPIO_PIN_6, GPIO_PIN_6};
+static Key_HandleTypeDef GameInputs[8];
+static Key_HandleTypeDef *GameInputList[8];
+
+static void Game_InputCallback(uint16_t key_id)
+{
+    if (key_id < 6U)
+        Game_RewardTriggered((uint8_t)key_id);
+    else if (key_id == 6U)
+        Game_EndTriggered();
+    else
+        Game_ButtonPressed();
+}
+
+static void GameInput_Init(void)
+{
+    Key_InitTypeDef init = {0};
+    for (uint16_t i = 0U; i < 8U; i++)
+    {
+        init.short_callback = Game_InputCallback;
+        init.long_callback = NULL;
+        init.release_callback = NULL;
+        init.debounce_time = KEY_DEBOUNCE_TIME;
+        init.longpress_time = 0xFFFFFFFFU;
+        init.trigger_frequnecy = 1U;
+        init.trigger_level = GPIO_PIN_RESET;
+        init.key_id = i;
+        init.port = GameInputPorts[i];
+        init.pin = GameInputPins[i];
+        Key_Init(&GameInputs[i], init);
+        GameInputList[i] = &GameInputs[i];
+    }
+}
+
 void KeyAll_Init(void)
 {
-    SettingButton_Init();
-    PlayButton_Init();
+    GameInput_Init();
 }
 
 void Key_Task(void)
 {
-    Key_Scan(setting_button_list, SETTING_BUTTON_COUNT);
-    Key_Scan(play_button_list, PLAY_BUTTON_COUNT);
+    Key_Scan(GameInputList, 8U);
 }

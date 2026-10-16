@@ -24,15 +24,11 @@ void DigitalTubeTask_Init(void)
     Init.CODE_CA = DIGITAL3BIT_CODE_CA;
 
     DigitalTube_Init(&DigitalTube, Init);
-    /* 中文注释：单段定位测试，按SPI缓冲区顺序，前八位分别只拉低OUT0~OUT7，
-       其余两位全灭；各位实际物理位置等待实机反馈确认。 */
+    /* 中文注释：单段测试完成，恢复十位数字测试1234567890。
+       沿用已确认的级联字节顺序，避免改变模块位置对应关系。 */
+    static const uint8_t TestDigits[10] = {1U, 2U, 3U, 4U, 5U, 6U, 7U, 8U, 9U, 0U};
     for (uint8_t i = 0U; i < 10U; i++)
-    {
-        if (i < 8U)
-            DigitalBuffer[i] = (uint8_t)~(1U << i);
-        else
-            DigitalBuffer[i] = 0xFFU;
-    }
+        DigitalBuffer[9U - i] = DIGITAL3BIT_CODE_CA[TestDigits[i]];
     DigitalTube.Refresh(&DigitalTube);
 
     /* 中文注释：首帧数据完成锁存后再拉低SEG_OE，使能数码管输出。 */

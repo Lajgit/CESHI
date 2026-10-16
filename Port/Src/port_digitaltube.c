@@ -16,22 +16,22 @@ const uint8_t SEGMENT_CODE_CA[] = {
 };
 
 /*
- * 中文注释：12101BR 当前PCB段脚对应：
- * A=OUT0、B=OUT1、E=OUT2、D=OUT3、C=OUT4、F=OUT5、G=OUT6、DP=OUT7。
- * 12101BR为共阳极，因此点亮段输出低电平。
+ * 中文注释：已通过实机逐路测试确认12101BR的段位对应：
+ * OUT0=A、OUT1=B、OUT2=C、OUT3=D、OUT4=E、OUT5=F、OUT6=G、OUT7=DP。
+ * 共阳极低电平点亮，bit0~bit7与OUT0~OUT7一一对应。
  */
 const uint8_t DIGITAL3BIT_CODE_CA[] = {
-    0xC0, // 0：A、B、C、D、E、F
-    0xED, // 1：B、C
-    0xB0, // 2：A、B、D、E、G
-    0xA4, // 3：A、B、C、D、G
-    0x8D, // 4：B、C、F、G
-    0x86, // 5：A、C、D、F、G
-    0x82, // 6：A、C、D、E、F、G
-    0xEC, // 7：A、B、C
-    0x80, // 8：A、B、C、D、E、F、G
-    0x84, // 9：A、B、C、D、F、G
-    0xFF, // 10 (空白)
+    0xC0, // 0
+    0xF9, // 1
+    0xA4, // 2
+    0xB0, // 3
+    0x99, // 4
+    0x92, // 5
+    0x82, // 6
+    0xF8, // 7
+    0x80, // 8
+    0x90, // 9
+    0xFF, // 空白
 };
 
 const uint8_t TOWER_CODE_CA[] = {

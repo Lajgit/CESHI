@@ -24,15 +24,14 @@ void DigitalTubeTask_Init(void)
     Init.CODE_CA = DIGITAL3BIT_CODE_CA;
 
     DigitalTube_Init(&DigitalTube, Init);
-    /* 中文注释：按实机级联方向，发送顺序固定为 CENTER、LEFT、RIGHT。
-       每个模块内部因移位方向相反，发送时使用该模块显示数据的反向顺序。 */
+    /* 中文注释：逻辑测试数据固定为1234567895。
+       按当前三块数码管的实际级联方向发送后，实机显示为：
+       LEFT=3456、CENTER=12、RIGHT=7895。 */
     static const uint8_t TestDigits[10] = {
-        2, 1,             /* CENTER：实际显示12 */
-        6, 5, 4, 3,       /* LEFT：实际显示3456 */
-        5, 9, 8, 7        /* RIGHT：实际显示7895 */
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 5
     };
     for (uint8_t i = 0U; i < 10U; i++)
-        DigitalBuffer[i] = DIGITAL3BIT_CODE_CA[TestDigits[i]];
+        DigitalBuffer[9U - i] = DIGITAL3BIT_CODE_CA[TestDigits[i]];
     DigitalTube.Refresh(&DigitalTube);
 
     /* 中文注释：首帧数据完成锁存后再拉低SEG_OE，使能数码管输出。 */

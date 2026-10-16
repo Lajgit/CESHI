@@ -39,6 +39,7 @@ void Game_ButtonPressed(void);
 void Game_RewardTriggered(uint8_t index);
 void Game_EndTriggered(void);
 void Game_Task(void);
+uint16_t Game_GetDisplayLevel(void);
 void Game_Stop(void);
 void System_Reset(void);
 void Main_Init(void);

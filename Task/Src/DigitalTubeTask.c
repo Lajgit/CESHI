@@ -24,14 +24,9 @@ void DigitalTubeTask_Init(void)
     Init.CODE_CA = DIGITAL3BIT_CODE_CA;
 
     DigitalTube_Init(&DigitalTube, Init);
-    /* 中文注释：逻辑测试数据固定为1234567895。
-       按当前三块数码管的实际级联方向发送后，实机显示为：
-       LEFT=3456、CENTER=12、RIGHT=7895。 */
-    static const uint8_t TestDigits[10] = {
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 5
-    };
+    /* 中文注释：单段验证：十个数码管均只拉低bit0，验证OUT0对应的实际段位。 */
     for (uint8_t i = 0U; i < 10U; i++)
-        DigitalBuffer[9U - i] = DIGITAL3BIT_CODE_CA[TestDigits[i]];
+        DigitalBuffer[i] = 0xFEU;
     DigitalTube.Refresh(&DigitalTube);
 
     /* 中文注释：首帧数据完成锁存后再拉低SEG_OE，使能数码管输出。 */

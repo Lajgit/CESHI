@@ -127,6 +127,14 @@ void Game_EndTriggered(void)
     }
 }
 
+/* 中文注释：待机及失败时关卡显示0；进行中及成功等待续关时显示实际关卡。 */
+uint16_t Game_GetDisplayLevel(void)
+{
+    if (GameState == GAME_IDLE || GameState == GAME_FAILED)
+        return 0U;
+    return GameLevel;
+}
+
 void Game_Stop(void)
 {
     /* 中文注释：外部停止命令清除本关动作状态，禁止后续按键继续驱动电磁阀。 */

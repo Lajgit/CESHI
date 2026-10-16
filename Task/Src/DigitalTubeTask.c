@@ -1,4 +1,9 @@
 #include "DigitalTubeTask.h"
+#include "InterruptTask.h"
+#include "CtrlTask.h"
+#include "MainTask.h"
+
+extern Motor_Hoolle Motor_Hoolle2;
 
 #define DigitalTube_Refresh_Time 25
 
@@ -24,11 +29,9 @@ void DigitalTubeTask_Init(void)
     Init.CODE_CA = DIGITAL3BIT_CODE_CA;
 
     DigitalTube_Init(&DigitalTube, Init);
-    /* 中文注释：单段测试完成，恢复十位数字测试1234567890。
-       沿用已确认的级联字节顺序，避免改变模块位置对应关系。 */
-    static const uint8_t TestDigits[10] = {1U, 2U, 3U, 4U, 5U, 6U, 7U, 8U, 9U, 0U};
+    /* 中文注释：正式版上电全部显示0，后续由游戏数据刷新。 */
     for (uint8_t i = 0U; i < 10U; i++)
-        DigitalBuffer[9U - i] = DIGITAL3BIT_CODE_CA[TestDigits[i]];
+        DigitalBuffer[i] = DIGITAL3BIT_CODE_CA[0];
     DigitalTube.Refresh(&DigitalTube);
 
     /* 中文注释：首帧数据完成锁存后再拉低SEG_OE，使能数码管输出。 */
@@ -67,12 +70,43 @@ void DigitalTube_SetDisplayNumber(uint32_t data)
     DigitalTube.Refresh(&DigitalTube);
 }
 
+/* 中文注释：逻辑发送顺序CENTER(余额2位)、LEFT(关卡4位)、RIGHT(电机2待吐珠4位)；
+ * 保留已验证的DigitalBuffer[9-i]级联映射，全部固定补零。
+ */
+static void DigitalTube_WriteNumber(uint8_t start, uint8_t digits, uint16_t value)
+{
+    for (uint8_t pos = 0U; pos < digits; pos++)
+    {
+        DigitalBuffer[9U - (uint8_t)(start + digits - 1U - pos)] =
+            DIGITAL3BIT_CODE_CA[value % 10U];
+        value /= 10U;
+    }
+}
+
 void DigitalTube_Task(void)
 {
-    static uint32_t time = 0;
-    if (HAL_GetTick() - time > DigitalTube_Refresh_Time)
+    static uint32_t time = 0U;
+    static uint16_t old_balance = 0xFFFFU;
+    static uint16_t old_level = 0xFFFFU;
+    static uint16_t old_pending = 0xFFFFU;
+    uint16_t balance, level, pending;
+
+    if ((uint32_t)(HAL_GetTick() - time) < DigitalTube_Refresh_Time)
+        return;
+    time = HAL_GetTick();
+
+    balance = GameBallCount;
+    level = Game_GetDisplayLevel();
+    pending = Motor_Hoolle2.Hoolle_num;
+
+    if (balance != old_balance || level != old_level || pending != old_pending)
     {
+        DigitalTube_WriteNumber(0U, 2U, (uint16_t)(balance % 100U));
+        DigitalTube_WriteNumber(2U, 4U, level);
+        DigitalTube_WriteNumber(6U, 4U, (uint16_t)(pending % 10000U));
+        old_balance = balance;
+        old_level = level;
+        old_pending = pending;
         DigitalTube.Refresh(&DigitalTube);
-        time = HAL_GetTick();
     }
 }
